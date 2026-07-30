@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lua & WeAreDevs Script Sandbox</title>
+    <!-- Підключаємо Wasmoon для запуску справжньої Lua у браузері через WebAssembly -->
+    <script src="https://cdn.jsdelivr.net/npm/wasmoon@1.16.0/dist/index.js"></script>
+    <style>
+        :root {
+            --bg-color: #121214;
+            --panel-bg: #1e1e24;
+            --accent: #7c3aed;
+            --accent-hover: #6d28d9;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border: #2e2e38;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            color: #a78bfa;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            color: var(--text-main);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background-color: #111115;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: #34d399;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.9rem;
+            padding: 12px;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button.secondary {
+            background-color: #374151;
+        }
+
+        button.secondary:hover {
+            background-color: #4b5563;
+        }
+
+        .status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            align-self: center;
+            margin-left: auto;
+        }
+
+        .output-box {
+            background-color: #111115;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: #60a5fa;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.9rem;
+            padding: 12px;
+            height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .info-box {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Lua Web VM & Sandbox</h1>
+            <p>Безпечний запуск та аналіз скриптів (WeAreDevs / сумісність) у браузері через WebAssembly</p>
+        </header>
+
+        <!-- Вхідний код -->
+        <div class="card">
+            <div class="section-title">
+                <span>Вставте скрипт (Loader або обфусцирований код):</span>
+            </div>
+            <textarea id="inputCode" placeholder="-- Вставте код сюди..."></textarea>
+            
+            <div class="controls">
+                <button id="btnRun">Запустити у VM</button>
+                <button id="btnClean" class="secondary">Очистити</button>
+                <button id="btnCopy" class="secondary">Копіювати результат</button>
+                <span id="statusText" class="status">Завантаження середовища...</span>
+            </div>
+        </div>
+
+        <!-- Вихідний код / Дамп -->
+        <div class="card">
+            <div class="section-title">
+                <span>Результат виконання (Вивід / Логи):</span>
+            </div>
+            <div id="outputResult" class="output-box">Тут з'явиться результат виконання віртуальної машини...</div>
+        </div>
+
+        <!-- Інформаційний блок -->
+        <div class="info-box">
+            <strong>Особливості:</strong> Сторінка використовує WebAssembly-версію Lua. У середовищі попередньо створені базові заглушки для стандартних функцій експлойтів (наприклад, <code>game</code>, <code>loadstring</code>, <code>setclipboard</code>), щоб уникнути миттєвих збоїв під час імітації запуску завантажувачів.
+        </div>
+    </div>
+
+    <script>
+        let luaFactory = null;
+        const statusText = document.getElementById('statusText');
+        const inputCode = document.getElementById('inputCode');
+        const outputResult = document.getElementById('outputResult');
+        const btnRun = document.getElementById('btnRun');
+
+        // Ініціалізація Wasmoon (Lua VM)
+        async function initLua() {
+            try {
+                statusText.textContent = "Ініціалізація WebAssembly Lua...";
+                const { LuaFactory } = window.wasmoon;
+                luaFactory = new LuaFactory();
+                statusText.textContent = "Lua VM готова до запуску!";
+            } catch (err) {
+                statusText.textContent = "Помилка завантаження Lua VM!";
+                console.error(err);
+            }
+        }
+
+        initLua();
+
+        btnRun.addEventListener('click', async () => {
+            if (!luaFactory) {
+                alert("Віртуальна машина ще завантажується. Зачекайте кілька секунд.");
+                return;
+            }
+
+            const code = inputCode.value.trim();
+            if (!code) {
+                alert("Будь ласка, введіть код для виконання.");
+                return;
+            }
+
+            outputResult.textContent = "Виконання у середовищі VM...\n";
+            statusText.textContent = "Виконується...";
+
+            let luaEngine;
+            try {
+                luaEngine = await luaFactory.createEngine();
+
+                let logs = [];
+                // Перехоплюємо print
+                luaEngine.global.set('print', (...args) => {
+                    logs.push(args.map(arg => String(arg)).join('\t'));
+                });
+
+                // Заглушки під імітацію середовища виконання
+                luaEngine.global.set('game', {
+                    GetService: (serviceName) => {
+                        return { Name: serviceName };
+                    }
+                });
+                luaEngine.global.set('loadstring', (str) => {
+                    logs.push("[!] Виклик loadstring() перехоплено.");
+                    return () => { logs.push("[!] Виконання завантаженого фрагмента."); };
+                });
+                luaEngine.global.set('setclipboard', (text) => {
+                    logs.push("[!] Спроба копіювання у буфер обміну: " + text);
+                });
+
+                // Виконання коду
+                await luaEngine.doString(code);
+
+                if (logs.length > 0) {
+                    outputResult.textContent = logs.join('\n');
+                } else {
+                    outputResult.textContent = "Скрипт виконано успішно, але виводу (print) не зафіксовано.";
+                }
+                statusText.textContent = "Виконано успішно!";
+            } catch (err) {
+                outputResult.textContent = "Помилка виконання у Lua VM:\n" + err.message;
+                statusText.textContent = "Помилка виконання";
+            } finally {
+                if (luaEngine) {
+                    luaEngine.global.close();
+                }
+            }
+        });
+
+        document.getElementById('btnClean').addEventListener('click', () => {
+            inputCode.value = '';
+            outputResult.textContent = 'Тут з'являться результати...';
+            statusText.textContent = 'Очищено';
+        });
+
+        document.getElementById('btnCopy').addEventListener('click', () => {
+            navigator.clipboard.writeText(outputResult.textContent);
+            alert('Результат скопійовано у буфер обміну!');
+        });
+    </script>
+</body>
+</html>
+
